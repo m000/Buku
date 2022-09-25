@@ -19,6 +19,7 @@ from hypothesis import strategies as st
 
 from buku import PERMANENT_REDIRECTS, BukuDb, FetchResult, BookmarkVar, bookmark_vars, parse_tags, prompt
 from tests.util import mock_http, mock_fetch, _add_rec, _tagset
+from . import environ
 
 
 def get_temp_dir_path():
@@ -145,6 +146,31 @@ class TestBukuDb(unittest.TestCase):
             self.assertEqual(dbdir_relative_expected, BukuDb.get_default_dbdir())
         finally:
             os.environ.update(originals)
+        with environ(HOME=None, HOMEPATH=None, HOMEDIR=None):
+            self.assertEqual(dbdir_relative_expected, BukuDb.get_default_dbdir())
+
+    @pytest.mark.non_tox
+    def test_get_default_db(self):
+        # BUKUDB not set
+        dbfile = os.path.join(TEST_TEMP_DBDIR_PATH, 'bookmarks.db')
+        with environ(HOME=None, HOMEPATH=None, HOMEDIR=None, BUKUDB=None):
+            self.assertEqual(dbfile, BukuDb.get_default_db())
+
+        # relative BUKUDB
+        with environ(HOME=None, HOMEPATH=None, HOMEDIR=None, BUKUDB='another.db'):
+            with self.assertRaises(SystemExit):
+                _ = BukuDb.get_default_db()
+
+        # absolute BUKUDB
+        dbfile = os.path.join(TEST_TEMP_DBDIR_PATH, 'another.db')
+        with environ(HOME=None, HOMEPATH=None, HOMEDIR=None, BUKUDB=dbfile):
+            self.assertEqual(dbfile, BukuDb.get_default_db())
+
+        # absolut BUKUDB - non-existing parent dir
+        dbfile = os.path.join(TEST_TEMP_DBDIR_PATH, 'XXX', 'another.db')
+        with environ(HOME=None, HOMEPATH=None, HOMEDIR=None, BUKUDB=dbfile):
+            with self.assertRaises(SystemExit):
+                _ = BukuDb.get_default_db()
 
     # # not sure how to test this in nondestructive manner
     # def test_move_legacy_dbfile(self):
